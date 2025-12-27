@@ -23,7 +23,7 @@ import {
 
 // UPDATED: Your specific Firebase Configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDowLNR8Pus_zSwsyHFk8vj1lFZjAJPl9Y",
+  const firebaseConfig = JSON.parse(import.meta.env.VITE_FIREBASE_CONFIG || '{}');
   authDomain: "pixelflare-studio.firebaseapp.com",
   projectId: "pixelflare-studio",
   storageBucket: "pixelflare-studio.firebasestorage.app",
