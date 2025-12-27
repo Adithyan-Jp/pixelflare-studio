@@ -364,6 +364,25 @@ function AuthPage() {
     }
   };
 
+  const handleGuestLogin = async () => {
+    setLoading(true);
+    setErr('');
+    
+    try {
+      // Create a random guest email
+      const guestEmail = `guest_${Date.now()}@pixelflare.app`;
+      const guestPassword = `guest_${Math.random().toString(36).slice(2)}`;
+      
+      // Create anonymous guest account
+      await createUserWithEmailAndPassword(auth, guestEmail, guestPassword);
+    } catch (error) {
+      console.error('Guest login error:', error);
+      setErr('Failed to create guest session. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-[#070708] relative overflow-hidden text-left">
       <div className="absolute top-0 right-0 w-[1000px] h-[1000px] bg-emerald-500/[0.05] rounded-full blur-[250px]" />
@@ -421,6 +440,17 @@ function AuthPage() {
             {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Initialise Studio Session'}
           </button>
         </form>
+        
+        {/* Guest Login Button */}
+        <button 
+          onClick={handleGuestLogin}
+          disabled={loading}
+          className="w-full py-4 bg-white/5 hover:bg-white/10 disabled:bg-zinc-900 disabled:cursor-not-allowed text-white font-bold rounded-[22px] border border-white/10 transition-all flex items-center justify-center space-x-2"
+        >
+          <User size={18} />
+          <span>Continue as Guest</span>
+        </button>
+        
         <button 
           onClick={() => { setIsLogin(!isLogin); setErr(''); }} 
           className="w-full text-zinc-500 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-all text-center"
