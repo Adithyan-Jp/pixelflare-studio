@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   LayoutDashboard, Library, Plus, Maximize2, Cpu, 
   User, X, LogOut, Lock, AtSign, MessageSquare, 
   Trash, Paperclip, Wand2, BrainCircuit, Send, Loader2,
   ChevronDown, ArrowRight, Folder, Filter, Grid, List, Search,
-  Zap, Database, HardDrive, Clock
+  Zap, Database, HardDrive, Clock, AlertCircle
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -21,25 +21,21 @@ import {
 
 // --- 1. CONFIG & INITIALIZATION ---
 
-// UPDATED: Your specific Firebase Configuration
+// FIXED: Proper Firebase Configuration from Environment Variables
 const firebaseConfig = {
-  const firebaseConfig = JSON.parse(import.meta.env.VITE_FIREBASE_CONFIG || '{}');
-  authDomain: "pixelflare-studio.firebaseapp.com",
-  projectId: "pixelflare-studio",
-  storageBucket: "pixelflare-studio.firebasestorage.app",
-  messagingSenderId: "482965484916",
-  appId: "1:482965484916:web:4e26abf0700fec00126821",
-  measurementId: "G-PGBG4GL9TQ"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDowLNR8Pus_zSwsyHFk8vj1lFZjAJPl9Y",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "pixelflare-studio.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "pixelflare-studio",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "pixelflare-studio.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "482965484916",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:482965484916:web:4e26abf0700fec00126821",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-PGBG4GL9TQ"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = 'pixelflare-studio-pro-v2'; // Unique ID for this app version's data structure
-
-// Optional: Add a Gemini API key here if you want text-based AI responses. 
-// Currently, the app uses Pollinations.ai for image generation which works without a key.
-const apiKey = ""; 
+const appId = 'pixelflare-studio-pro-v2';
 
 const STYLE_PRESETS = [
   { id: 'cinematic', label: 'Cinematic', suffix: 'cinematic film still, 8k, professional lighting, photorealistic' },
@@ -102,7 +98,11 @@ function PixelflareLogo({ igniting = false, size = 32 }) {
 
 function SidebarBtn({ icon: Icon, label, active, onClick }) {
   return (
-    <button onClick={onClick} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all duration-300 ${active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-lg shadow-emerald-950/20' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-200'}`}>
+    <button 
+      onClick={onClick} 
+      aria-label={label}
+      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all duration-300 ${active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-lg shadow-emerald-950/20' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-200'}`}
+    >
       <Icon size={18} />
       <span className="font-semibold text-sm tracking-tight">{label}</span>
     </button>
@@ -110,13 +110,22 @@ function SidebarBtn({ icon: Icon, label, active, onClick }) {
 }
 
 function ThreadItem({ thread, active, onClick, onDelete }) {
+  const threadName = thread?.name || 'Untitled session';
+  
   return (
-    <div className={`group flex items-center justify-between w-full px-4 py-2.5 rounded-xl transition-all ${active ? 'bg-white/5 text-white shadow-xl' : 'text-zinc-600 hover:bg-white/[0.02] hover:text-zinc-300'} cursor-pointer`} onClick={onClick}>
+    <div 
+      className={`group flex items-center justify-between w-full px-4 py-2.5 rounded-xl transition-all ${active ? 'bg-white/5 text-white shadow-xl' : 'text-zinc-600 hover:bg-white/[0.02] hover:text-zinc-300'} cursor-pointer`} 
+      onClick={onClick}
+    >
       <div className="flex items-center space-x-3 overflow-hidden text-left">
         <MessageSquare size={14} className={active ? 'text-emerald-400' : 'text-zinc-800'} />
-        <span className="text-xs font-medium truncate">{String(thread.name || 'Untitled session')}</span>
+        <span className="text-xs font-medium truncate">{threadName}</span>
       </div>
-      <button onClick={(e) => { e.stopPropagation(); onDelete(thread.id); }} className="p-1.5 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button 
+        onClick={(e) => { e.stopPropagation(); onDelete(thread.id); }} 
+        className="p-1.5 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-label={`Delete ${threadName}`}
+      >
         <Trash size={12} />
       </button>
     </div>
@@ -125,15 +134,32 @@ function ThreadItem({ thread, active, onClick, onDelete }) {
 
 function ArtifactView({ flare, onClose }) {
   if (!flare) return null;
+  
+  const flareTitle = flare?.title || 'Untitled';
+  const flareStyle = flare?.style || 'Neural';
+  const flarePrompt = flare?.prompt || 'No prompt info';
+  
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 animate-in fade-in duration-300 text-left">
       <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={onClose} />
       <div className="relative w-full max-w-5xl glass rounded-[40px] overflow-hidden flex flex-col md:flex-row shadow-2xl h-[75vh] border border-white/10">
-        <div className="flex-1 bg-black flex items-center justify-center overflow-hidden"><img src={flare.url} className="max-w-full max-h-full object-contain p-4" alt="Inspect" /></div>
-        <div className="w-[380px] border-l border-white/5 flex flex-col p-10 space-y-8 bg-[#0c0c0e] text-left overflow-y-auto scrollbar-hide">
-          <div className="space-y-2"><h2 className="text-2xl font-bold text-white tracking-tight">{String(flare.title || 'Untitled')}</h2><p className="text-emerald-500 font-bold uppercase text-[10px] tracking-widest">{String(flare.style || 'Neural')}</p></div>
-          <div className="p-5 bg-white/5 border border-white/5 rounded-2xl text-xs text-zinc-400 leading-relaxed italic">"{String(flare.prompt || 'No prompt info')}"</div>
-          <button onClick={onClose} className="mt-auto py-4 bg-white text-black font-bold rounded-2xl text-sm hover:bg-emerald-400 transition-all">Dismiss Artifact</button>
+        <div className="flex-1 bg-black flex items-center justify-center overflow-hidden">
+          <img src={flare.url} className="max-w-full max-h-full object-contain p-4" alt={flareTitle} />
+        </div>
+        <div className="w-full md:w-[380px] border-l border-white/5 flex flex-col p-10 space-y-8 bg-[#0c0c0e] text-left overflow-y-auto scrollbar-hide">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-white tracking-tight">{flareTitle}</h2>
+            <p className="text-emerald-500 font-bold uppercase text-[10px] tracking-widest">{flareStyle}</p>
+          </div>
+          <div className="p-5 bg-white/5 border border-white/5 rounded-2xl text-xs text-zinc-400 leading-relaxed italic">
+            "{flarePrompt}"
+          </div>
+          <button 
+            onClick={onClose} 
+            className="mt-auto py-4 bg-white text-black font-bold rounded-2xl text-sm hover:bg-emerald-400 transition-all"
+          >
+            Dismiss Artifact
+          </button>
         </div>
       </div>
     </div>
@@ -147,9 +173,9 @@ function VaultPro({ items, onInspect, deleteItem }) {
 
   const filteredItems = useMemo(() => {
     return items.filter(item => {
-      const title = String(item.title || "").toLowerCase();
-      const prompt = String(item.prompt || "").toLowerCase();
-      const style = String(item.style || "").toLowerCase();
+      const title = (item?.title || "").toLowerCase();
+      const prompt = (item?.prompt || "").toLowerCase();
+      const style = (item?.style || "").toLowerCase();
       const matchesSearch = title.includes(search.toLowerCase()) || prompt.includes(search.toLowerCase());
       const matchesFilter = filter === 'all' || style === filter.toLowerCase();
       return matchesSearch && matchesFilter;
@@ -158,7 +184,7 @@ function VaultPro({ items, onInspect, deleteItem }) {
 
   const groupedByStyle = useMemo(() => {
     return items.reduce((acc, item) => {
-      const style = String(item.style || 'Uncategorized');
+      const style = item?.style || 'Uncategorized';
       if (!acc[style]) acc[style] = [];
       acc[style].push(item);
       return acc;
@@ -166,61 +192,133 @@ function VaultPro({ items, onInspect, deleteItem }) {
   }, [items]);
 
   return (
-    <div className="h-full flex flex-col p-12 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 text-left">
+    <div className="h-full flex flex-col p-6 md:p-12 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 text-left overflow-y-auto scrollbar-hide">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
         <div className="space-y-2">
-          <h1 className="text-6xl font-bold tracking-tighter">Vault Explorer</h1>
-          <p className="text-zinc-500 font-medium text-lg">Neural artifact indexing and cluster management.</p>
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tighter">Vault Explorer</h1>
+          <p className="text-zinc-500 font-medium text-base md:text-lg">Neural artifact indexing and cluster management.</p>
         </div>
         <div className="flex items-center space-x-3 bg-white/5 p-2 rounded-2xl border border-white/5 shadow-xl">
-          <button onClick={() => setViewMode('grid')} title="Grid View" className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-emerald-500 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}><Grid size={20} /></button>
-          <button onClick={() => setViewMode('folder')} title="Folder View" className={`p-3 rounded-xl transition-all ${viewMode === 'folder' ? 'bg-emerald-500 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}><Folder size={20} /></button>
+          <button 
+            onClick={() => setViewMode('grid')} 
+            title="Grid View" 
+            aria-label="Grid View"
+            className={`p-3 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-emerald-500 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+          >
+            <Grid size={20} />
+          </button>
+          <button 
+            onClick={() => setViewMode('folder')} 
+            title="Folder View" 
+            aria-label="Folder View"
+            className={`p-3 rounded-xl transition-all ${viewMode === 'folder' ? 'bg-emerald-500 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+          >
+            <Folder size={20} />
+          </button>
         </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6 items-center">
-        <div className="relative flex-1 group">
+        <div className="relative flex-1 w-full group">
           <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-emerald-400 transition-colors" size={18} />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-4 pl-14 pr-6 outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm font-medium transition-all" placeholder="Search neural patterns..." />
+          <input 
+            value={search} 
+            onChange={(e) => setSearch(e.target.value)} 
+            className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-4 pl-14 pr-6 outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm font-medium transition-all" 
+            placeholder="Search neural patterns..." 
+            aria-label="Search artifacts"
+          />
         </div>
-        <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide pb-2">
-          <button onClick={() => setFilter('all')} className={`px-5 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${filter === 'all' ? 'bg-white text-black border-white' : 'bg-white/5 text-zinc-500 border-white/5 hover:text-white'}`}>All Assets</button>
+        <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide pb-2 w-full md:w-auto">
+          <button 
+            onClick={() => setFilter('all')} 
+            className={`px-5 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${filter === 'all' ? 'bg-white text-black border-white' : 'bg-white/5 text-zinc-500 border-white/5 hover:text-white'}`}
+          >
+            All Assets
+          </button>
           {STYLE_PRESETS.map(s => (
-            <button key={s.id} onClick={() => setFilter(s.id)} className={`px-5 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${filter === s.id ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-white/5 text-zinc-500 border-white/5 hover:text-white'}`}>{s.label}</button>
+            <button 
+              key={s.id} 
+              onClick={() => setFilter(s.id)} 
+              className={`px-5 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${filter === s.id ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-white/5 text-zinc-500 border-white/5 hover:text-white'}`}
+            >
+              {s.label}
+            </button>
           ))}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div className="flex-1">
         {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-            {filteredItems.map(item => (
-              <div key={item.id} className="group relative bg-white/[0.02] border border-white/5 rounded-[32px] p-3 hover:border-emerald-500/30 transition-all duration-500 shadow-xl cursor-pointer" onClick={() => onInspect(item)}>
-                <div className="aspect-[4/5] rounded-[24px] overflow-hidden relative border border-white/5">
-                  <img src={item.url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Vault Item" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center"><Maximize2 className="text-white" size={32} /></div>
-                </div>
-                <div className="p-4 flex justify-between items-center">
-                  <div className="overflow-hidden">
-                    <p className="font-bold text-sm truncate text-zinc-200">{String(item.title || 'Untitled')}</p>
-                    <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">{String(item.style || 'Neural')}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
+            {filteredItems.map(item => {
+              const itemTitle = item?.title || 'Untitled';
+              const itemStyle = item?.style || 'Neural';
+              
+              return (
+                <div 
+                  key={item.id} 
+                  className="group relative bg-white/[0.02] border border-white/5 rounded-[32px] p-3 hover:border-emerald-500/30 transition-all duration-500 shadow-xl cursor-pointer" 
+                  onClick={() => onInspect(item)}
+                >
+                  <div className="aspect-[4/5] rounded-[24px] overflow-hidden relative border border-white/5">
+                    <img 
+                      src={item.url} 
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                      alt={itemTitle}
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                      <Maximize2 className="text-white" size={32} />
+                    </div>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }} className="p-2 text-zinc-700 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash size={14} /></button>
+                  <div className="p-4 flex justify-between items-center">
+                    <div className="overflow-hidden">
+                      <p className="font-bold text-sm truncate text-zinc-200">{itemTitle}</p>
+                      <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">{itemStyle}</p>
+                    </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }} 
+                      className="p-2 text-zinc-700 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                      aria-label={`Delete ${itemTitle}`}
+                    >
+                      <Trash size={14} />
+                    </button>
+                  </div>
                 </div>
+              );
+            })}
+            {filteredItems.length === 0 && (
+              <div className="col-span-full py-20 text-center text-zinc-600 font-medium italic">
+                No artifacts found in this neural cluster.
               </div>
-            ))}
-            {filteredItems.length === 0 && <div className="col-span-full py-20 text-center text-zinc-600 font-medium italic">No artifacts found in this neural cluster.</div>}
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {Object.entries(groupedByStyle).map(([style, styleItems]) => (
-              <div key={style} className="glass p-8 rounded-[40px] border border-white/5 space-y-6 hover:border-white/10 transition-all group">
+              <div 
+                key={style} 
+                className="glass p-8 rounded-[40px] border border-white/5 space-y-6 hover:border-white/10 transition-all group"
+              >
                 <div className="flex items-center justify-between">
-                  <div className="p-4 bg-emerald-500/10 rounded-2xl text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all"><Folder size={24} /></div>
-                  <span className="text-[10px] font-bold text-zinc-600 bg-white/5 px-3 py-1 rounded-full uppercase tracking-widest">{styleItems.length} Assets</span>
+                  <div className="p-4 bg-emerald-500/10 rounded-2xl text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                    <Folder size={24} />
+                  </div>
+                  <span className="text-[10px] font-bold text-zinc-600 bg-white/5 px-3 py-1 rounded-full uppercase tracking-widest">
+                    {styleItems.length} Assets
+                  </span>
                 </div>
-                <div><h3 className="text-xl font-bold text-white capitalize">{String(style)}</h3><p className="text-zinc-500 text-xs font-medium">Neural cluster directory</p></div>
-                <button onClick={() => { setFilter(style.toLowerCase()); setViewMode('grid'); }} className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all">Open Directory</button>
+                <div>
+                  <h3 className="text-xl font-bold text-white capitalize">{style}</h3>
+                  <p className="text-zinc-500 text-xs font-medium">Neural cluster directory</p>
+                </div>
+                <button 
+                  onClick={() => { setFilter(style.toLowerCase()); setViewMode('grid'); }} 
+                  className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
+                >
+                  Open Directory
+                </button>
               </div>
             ))}
           </div>
@@ -239,12 +337,31 @@ function AuthPage() {
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    setLoading(true); setErr('');
+    setLoading(true); 
+    setErr('');
+    
     try {
-      if (isLogin) await signInWithEmailAndPassword(auth, email, password);
-      else await createUserWithEmailAndPassword(auth, email, password);
-    } catch (error) { setErr(error.message); } 
-    finally { setLoading(false); }
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
+    } catch (error) { 
+      // Improved error messages
+      const errorMessage = error.code === 'auth/user-not-found' 
+        ? 'No account found with this email' 
+        : error.code === 'auth/wrong-password'
+        ? 'Incorrect password'
+        : error.code === 'auth/email-already-in-use'
+        ? 'Email already registered'
+        : error.code === 'auth/weak-password'
+        ? 'Password should be at least 6 characters'
+        : 'Authentication failed. Please try again.';
+      
+      setErr(errorMessage);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   return (
@@ -252,45 +369,122 @@ function AuthPage() {
       <div className="absolute top-0 right-0 w-[1000px] h-[1000px] bg-emerald-500/[0.05] rounded-full blur-[250px]" />
       <div className="w-full max-w-md glass rounded-[56px] p-12 space-y-8 shadow-2xl relative z-10 border border-white/10 animate-in fade-in zoom-in-95 duration-500">
         <div className="text-center space-y-4">
-          <PixelflareLogo size={40} />
+          <div className="flex justify-center">
+            <PixelflareLogo size={40} />
+          </div>
           <h1 className="text-4xl font-bold tracking-tighter">Studio Access</h1>
           <p className="text-zinc-500 text-sm font-medium">Identify your neural node to continue.</p>
         </div>
         <form onSubmit={handleAuth} className="space-y-5">
-          <div className="space-y-2"><label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Identity</label><div className="relative"><AtSign className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-700" size={18} /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-4 pl-14 pr-6 text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500/30" placeholder="email@node.com" /></div></div>
-          <div className="space-y-2"><label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Keyphrase</label><div className="relative"><Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-700" size={18} /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-4 pl-14 pr-6 text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500/30" placeholder="••••••••" /></div></div>
-          {err && <p className="text-rose-500 text-[10px] font-bold uppercase text-center">{err}</p>}
-          <button type="submit" disabled={loading} className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-[22px] shadow-xl active:scale-95 transition-all">{loading ? <Loader2 className="animate-spin mx-auto" /> : 'Initialise Studio Session'}</button>
+          <div className="space-y-2">
+            <label htmlFor="email" className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Identity</label>
+            <div className="relative">
+              <AtSign className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-700" size={18} />
+              <input 
+                id="email"
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                required 
+                className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-4 pl-14 pr-6 text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500/30" 
+                placeholder="email@node.com" 
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="password" className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Keyphrase</label>
+            <div className="relative">
+              <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-700" size={18} />
+              <input 
+                id="password"
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required 
+                minLength={6}
+                className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-4 pl-14 pr-6 text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500/30" 
+                placeholder="••••••••" 
+              />
+            </div>
+          </div>
+          {err && (
+            <div className="flex items-center space-x-2 text-rose-500 text-xs font-medium bg-rose-500/10 p-3 rounded-xl border border-rose-500/20">
+              <AlertCircle size={14} />
+              <span>{err}</span>
+            </div>
+          )}
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:cursor-not-allowed text-white font-bold rounded-[22px] shadow-xl active:scale-95 transition-all"
+          >
+            {loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : 'Initialise Studio Session'}
+          </button>
         </form>
-        <button onClick={() => setIsLogin(!isLogin)} className="w-full text-zinc-500 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-all text-center">{isLogin ? "Need a node? Register" : "Have an ID? Login"}</button>
+        <button 
+          onClick={() => { setIsLogin(!isLogin); setErr(''); }} 
+          className="w-full text-zinc-500 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-all text-center"
+        >
+          {isLogin ? "Need a node? Register" : "Have an ID? Login"}
+        </button>
       </div>
     </div>
   );
 }
 
 function HubView({ setTab, vaultCount, userEmail }) {
-  const displayEmail = String(userEmail || 'Guest');
+  const displayEmail = userEmail || 'Guest';
+  const userName = displayEmail.split('@')[0];
+  
   return (
-    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700 text-white text-left p-12 max-w-6xl mx-auto">
-      <div className="relative p-14 bg-[#0c0c0e] border border-white/5 rounded-[48px] overflow-hidden group shadow-2xl text-left">
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700 text-white text-left p-6 md:p-12 max-w-6xl mx-auto overflow-y-auto scrollbar-hide h-full">
+      <div className="relative p-8 md:p-14 bg-[#0c0c0e] border border-white/5 rounded-[48px] overflow-hidden group shadow-2xl text-left">
         <div className="relative z-10 space-y-8 max-w-2xl text-left text-white">
           <div className="space-y-4 text-left">
-            <span className="px-4 py-1.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-[0.3em] rounded-full border border-emerald-500/20 shadow-md">Studio Verified</span>
-            <h1 className="text-6xl font-bold leading-tight tracking-tighter text-white text-left text-balance">Welcome back,<br/><span className="text-emerald-400 italic">{displayEmail.split('@')[0]}</span>.</h1>
+            <span className="inline-block px-4 py-1.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-[0.3em] rounded-full border border-emerald-500/20 shadow-md">
+              Studio Verified
+            </span>
+            <h1 className="text-4xl md:text-6xl font-bold leading-tight tracking-tighter text-white text-left">
+              Welcome back,<br/>
+              <span className="text-emerald-400 italic">{userName}</span>.
+            </h1>
           </div>
-          <p className="text-zinc-400 text-lg font-medium leading-relaxed max-w-lg text-left text-balance">Your private workstation is active. Start a neural conversation to manifest vision artifacts.</p>
-          <button onClick={() => setTab('engine')} className="px-10 py-4 bg-emerald-600 rounded-[24px] font-bold flex items-center hover:bg-emerald-50 transition-all text-base active:scale-95 shadow-xl text-white text-nowrap">
-            Launch Engine Interface <ArrowRight size={20} className="ml-3 inline" />
+          <p className="text-zinc-400 text-base md:text-lg font-medium leading-relaxed max-w-lg text-left">
+            Your private workstation is active. Start a neural conversation to manifest vision artifacts.
+          </p>
+          <button 
+            onClick={() => setTab('engine')} 
+            className="px-10 py-4 bg-emerald-600 rounded-[24px] font-bold flex items-center hover:bg-emerald-500 transition-all text-base active:scale-95 shadow-xl text-white whitespace-nowrap"
+          >
+            Launch Engine Interface <ArrowRight size={20} className="ml-3" />
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center text-left text-white">
-          <div className="glass p-10 rounded-[40px] flex flex-col justify-center items-center space-y-3 shadow-xl text-left text-white"><Library size={24} className="text-zinc-700" /><div><p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-1 text-center">Archive</p><h3 className="text-3xl font-bold text-center tracking-tight text-white">{vaultCount} Assets</h3></div></div>
-          <div className="glass p-10 rounded-[40px] flex flex-col justify-center items-center space-y-3 shadow-xl text-left text-white"><Cpu size={24} className="text-emerald-400" /><div><p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-1 text-center">Node</p><h3 className="text-3xl font-bold text-emerald-400 text-center tracking-tight">Active</h3></div></div>
-          <div className="glass p-10 rounded-[40px] flex flex-col justify-center items-center space-y-3 shadow-xl cursor-pointer hover:bg-rose-500/5 transition-colors group text-left text-white" onClick={() => signOut(auth)}>
-            <LogOut size={24} className="text-rose-500 group-hover:scale-110 transition-transform" />
-            <div><p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-1 text-center">Identity</p><h3 className="text-3xl font-bold text-center tracking-tight">Logout</h3></div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="glass p-10 rounded-[40px] flex flex-col justify-center items-center space-y-3 shadow-xl">
+          <Library size={24} className="text-zinc-700" />
+          <div className="text-center">
+            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-1">Archive</p>
+            <h3 className="text-3xl font-bold tracking-tight text-white">{vaultCount} Assets</h3>
           </div>
+        </div>
+        <div className="glass p-10 rounded-[40px] flex flex-col justify-center items-center space-y-3 shadow-xl">
+          <Cpu size={24} className="text-emerald-400" />
+          <div className="text-center">
+            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-1">Node</p>
+            <h3 className="text-3xl font-bold text-emerald-400 tracking-tight">Active</h3>
+          </div>
+        </div>
+        <div 
+          className="glass p-10 rounded-[40px] flex flex-col justify-center items-center space-y-3 shadow-xl cursor-pointer hover:bg-rose-500/5 transition-colors group" 
+          onClick={() => signOut(auth)}
+        >
+          <LogOut size={24} className="text-rose-500 group-hover:scale-110 transition-transform" />
+          <div className="text-center">
+            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-1">Identity</p>
+            <h3 className="text-3xl font-bold tracking-tight">Logout</h3>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -311,196 +505,457 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(true);
   const [input, setInput] = useState('');
   const [style, setStyle] = useState('cinematic');
+  const [generationError, setGenerationError] = useState(null);
 
+  // Auth state listener
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => { setUser(u); setAuthLoading(false); });
+    const unsub = onAuthStateChanged(auth, u => { 
+      setUser(u); 
+      setAuthLoading(false); 
+    });
     return () => unsub();
   }, []);
 
+  // Threads and vault listener
   useEffect(() => {
     if (!user) return;
+    
     const threadsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'chat_threads');
     const unsubThreads = onSnapshot(threadsRef, snap => {
       const ts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       ts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
       setThreads(ts);
-      if (ts.length > 0 && !activeThreadId) setActiveThreadId(ts[0].id);
+      
+      // Auto-select first thread if none selected
+      if (ts.length > 0 && !activeThreadId) {
+        setActiveThreadId(ts[0].id);
+      }
     });
+    
     const vaultRef = collection(db, 'artifacts', appId, 'users', user.uid, 'asset_vault');
     const unsubVault = onSnapshot(vaultRef, snap => {
       setVaultItems(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    return () => { unsubThreads(); unsubVault(); };
+    
+    return () => { 
+      unsubThreads(); 
+      unsubVault(); 
+    };
   }, [user, activeThreadId]);
 
+  // Messages listener
   useEffect(() => {
-    if (!user || !activeThreadId) { setChatMessages([]); return; }
+    if (!user || !activeThreadId) { 
+      setChatMessages([]); 
+      return; 
+    }
+    
     const msgRef = collection(db, 'artifacts', appId, 'users', user.uid, 'chat_threads', activeThreadId, 'messages');
     const unsubMsgs = onSnapshot(msgRef, snap => {
       const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       msgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-      setChatMessages(msgs.length > 0 ? msgs : [{ role: 'ai', type: 'text', content: 'Flare is ready. Ignite your vision ✨' }]);
+      
+      // Show welcome message if no messages
+      if (msgs.length === 0) {
+        setChatMessages([{ 
+          role: 'ai', 
+          type: 'text', 
+          content: 'Flare is ready. Ignite your vision ✨',
+          timestamp: Date.now()
+        }]);
+      } else {
+        setChatMessages(msgs);
+      }
     });
+    
     return () => unsubMsgs();
   }, [user, activeThreadId]);
 
   const handleSend = async () => {
     if (!user || !activeThreadId || !input.trim() || isGenerating) return;
+    
     const content = input;
     const currentStyle = style;
     setInput('');
     setIsGenerating(true);
+    setGenerationError(null);
+    
     const msgRef = collection(db, 'artifacts', appId, 'users', user.uid, 'chat_threads', activeThreadId, 'messages');
-    await addDoc(msgRef, { role: 'user', type: 'text', content, timestamp: Date.now() });
+    
+    // Add user message
+    await addDoc(msgRef, { 
+      role: 'user', 
+      type: 'text', 
+      content, 
+      timestamp: Date.now() 
+    });
 
     try {
       const styleData = STYLE_PRESETS.find(s => s.id === currentStyle);
-      const full = encodeURIComponent(`${content}, ${styleData?.suffix}`);
-      const imageUrl = `https://image.pollinations.ai/prompt/${full}?nologo=true&width=1024&height=1024&seed=${Math.floor(Math.random()*1000000)}`;
-      await addDoc(msgRef, { role: 'ai', type: 'image', content: imageUrl, prompt: content, style: String(styleData?.label), timestamp: Date.now() });
-    } catch (e) { console.error(e); } finally { setIsGenerating(false); }
+      const fullPrompt = `${content}, ${styleData?.suffix || ''}`;
+      const encodedPrompt = encodeURIComponent(fullPrompt);
+      const seed = Date.now(); // Use timestamp for uniqueness
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&width=1024&height=1024&seed=${seed}`;
+      
+      // Add AI response with image
+      await addDoc(msgRef, { 
+        role: 'ai', 
+        type: 'image', 
+        content: imageUrl, 
+        prompt: content, 
+        style: styleData?.label || 'Custom',
+        timestamp: Date.now() 
+      });
+    } catch (e) { 
+      console.error('Generation error:', e);
+      setGenerationError('Failed to generate image. Please try again.');
+      
+      // Add error message to chat
+      await addDoc(msgRef, { 
+        role: 'ai', 
+        type: 'text', 
+        content: '⚠️ Generation failed. Please try again with a different prompt or style.',
+        timestamp: Date.now() 
+      });
+    } finally { 
+      setIsGenerating(false); 
+    }
   };
 
-  const saveToVault = async (item) => {
+  const saveToVault = useCallback(async (item) => {
     if (!user) return;
-    const vaultRef = collection(db, 'artifacts', appId, 'users', user.uid, 'asset_vault');
-    await addDoc(vaultRef, { ...item, timestamp: Date.now() });
-    setActiveTab('library');
-  };
+    
+    try {
+      const vaultRef = collection(db, 'artifacts', appId, 'users', user.uid, 'asset_vault');
+      await addDoc(vaultRef, { 
+        ...item, 
+        timestamp: Date.now() 
+      });
+      setActiveTab('library');
+    } catch (error) {
+      console.error('Error saving to vault:', error);
+    }
+  }, [user]);
 
-  const handleNewChat = async () => {
+  const handleNewChat = useCallback(async () => {
     if (!user) return;
-    const tr = await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'chat_threads'), { name: 'New Session...', timestamp: Date.now() });
-    setActiveThreadId(tr.id); setActiveTab('engine');
-  };
+    
+    try {
+      const threadsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'chat_threads');
+      const newThread = await addDoc(threadsRef, { 
+        name: 'New Session', 
+        timestamp: Date.now() 
+      });
+      setActiveThreadId(newThread.id);
+      setActiveTab('engine');
+    } catch (error) {
+      console.error('Error creating new chat:', error);
+    }
+  }, [user]);
 
-  if (authLoading) return <div className="h-screen bg-[#070708] flex items-center justify-center"><Loader2 className="animate-spin text-emerald-500" size={48} /></div>;
-  if (!user) return <><GlobalStyles /><AuthPage /></>;
+  const deleteThread = useCallback(async (threadId) => {
+    if (!user) return;
+    
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'chat_threads', threadId));
+      
+      // If deleting active thread, switch to another
+      if (threadId === activeThreadId && threads.length > 1) {
+        const nextThread = threads.find(t => t.id !== threadId);
+        if (nextThread) setActiveThreadId(nextThread.id);
+      }
+    } catch (error) {
+      console.error('Error deleting thread:', error);
+    }
+  }, [user, activeThreadId, threads]);
+
+  const deleteVaultItem = useCallback(async (itemId) => {
+    if (!user) return;
+    
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'asset_vault', itemId));
+    } catch (error) {
+      console.error('Error deleting vault item:', error);
+    }
+  }, [user]);
+
+  // Loading state
+  if (authLoading) {
+    return (
+      <div className="h-screen bg-[#070708] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="animate-spin text-emerald-500 mx-auto" size={48} />
+          <p className="text-zinc-500 text-sm font-medium">Initializing Studio...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Not authenticated
+  if (!user) {
+    return (
+      <>
+        <GlobalStyles />
+        <AuthPage />
+      </>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-[#070708] text-white overflow-hidden text-left antialiased">
       <GlobalStyles />
-      <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0"><div className="absolute top-0 right-0 w-[800px] h-[800px] bg-emerald-500/[0.05] rounded-full blur-[180px]" /></div>
+      
+      {/* Background decoration */}
+      <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-emerald-500/[0.05] rounded-full blur-[180px]" />
+      </div>
 
-      <aside className="w-[320px] border-r border-white/5 bg-[#070708]/80 backdrop-blur-3xl flex flex-col p-8 space-y-12 z-20 overflow-hidden text-left">
-        <div className="flex items-center space-x-4 cursor-pointer" onClick={() => setActiveTab('dashboard')}><PixelflareLogo igniting={isGenerating} size={36} /><span className="text-3xl font-bold tracking-tighter">Pixelflare</span></div>
+      {/* Sidebar */}
+      <aside className="w-[320px] border-r border-white/5 bg-[#070708]/80 backdrop-blur-3xl flex flex-col p-8 space-y-12 z-20 overflow-hidden text-left hidden md:flex">
+        <div 
+          className="flex items-center space-x-4 cursor-pointer" 
+          onClick={() => setActiveTab('dashboard')}
+        >
+          <PixelflareLogo igniting={isGenerating} size={36} />
+          <span className="text-3xl font-bold tracking-tighter">Pixelflare</span>
+        </div>
+        
         <nav className="space-y-3">
-          <SidebarBtn icon={LayoutDashboard} label="Studio Hub" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-          <SidebarBtn icon={Plus} label="New Engine Thread" active={activeTab === 'engine'} onClick={handleNewChat} />
-          <SidebarBtn icon={Library} label="Neural Vault" active={activeTab === 'library'} onClick={() => setActiveTab('library')} />
+          <SidebarBtn 
+            icon={LayoutDashboard} 
+            label="Studio Hub" 
+            active={activeTab === 'dashboard'} 
+            onClick={() => setActiveTab('dashboard')} 
+          />
+          <SidebarBtn 
+            icon={Plus} 
+            label="New Engine Thread" 
+            active={false} 
+            onClick={handleNewChat} 
+          />
+          <SidebarBtn 
+            icon={Library} 
+            label="Neural Vault" 
+            active={activeTab === 'library'} 
+            onClick={() => setActiveTab('library')} 
+          />
         </nav>
         
         <div className="flex-1 flex flex-col space-y-4 overflow-hidden">
-          <button onClick={() => setIsHistoryOpen(!isHistoryOpen)} className="flex items-center justify-between px-2 w-full text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-emerald-400 transition-all">
+          <button 
+            onClick={() => setIsHistoryOpen(!isHistoryOpen)} 
+            className="flex items-center justify-between px-2 w-full text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-emerald-400 transition-all"
+          >
             <span>Neural History</span>
-            <ChevronDown className={`transition-transform duration-300 ${isHistoryOpen ? 'rotate-180' : ''}`} size={14} />
+            <ChevronDown 
+              className={`transition-transform duration-300 ${isHistoryOpen ? 'rotate-180' : ''}`} 
+              size={14} 
+            />
           </button>
+          
           {isHistoryOpen && (
             <div className="flex-1 overflow-y-auto space-y-1 pr-2 scrollbar-hide">
-              {threads.map(t => (
-                <ThreadItem key={t.id} thread={t} active={activeThreadId === t.id} onClick={() => { setActiveThreadId(t.id); setActiveTab('engine'); }} onDelete={tid => deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'chat_threads', tid))} />
-              ))}
+              {threads.length === 0 ? (
+                <p className="text-xs text-zinc-600 italic text-center py-4">
+                  No sessions yet
+                </p>
+              ) : (
+                threads.map(t => (
+                  <ThreadItem 
+                    key={t.id} 
+                    thread={t} 
+                    active={activeThreadId === t.id} 
+                    onClick={() => { 
+                      setActiveThreadId(t.id); 
+                      setActiveTab('engine'); 
+                    }} 
+                    onDelete={deleteThread}
+                  />
+                ))
+              )}
             </div>
           )}
         </div>
 
         <div className="glass p-8 rounded-[32px] relative overflow-hidden shadow-2xl border border-emerald-500/10 text-left">
-          <p className="text-[11px] font-bold uppercase tracking-[0.3em] opacity-40">Authorization</p>
-          <div className="flex items-center font-bold text-base truncate"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-4 animate-pulse shadow-[0_0_15px_rgba(16,185,129,1)]" />{String(user.email ? user.email.split('@')[0] : 'Guest Node')}</div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.3em] opacity-40 mb-2">Authorization</p>
+          <div className="flex items-center font-bold text-base truncate">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-4 animate-pulse shadow-[0_0_15px_rgba(16,185,129,1)]" />
+            {user.email ? user.email.split('@')[0] : 'Guest Node'}
+          </div>
         </div>
       </aside>
 
+      {/* Main Content */}
       <main className="flex-1 flex flex-col relative z-10 overflow-hidden text-left">
-        <header className="h-[100px] border-b border-white/5 flex items-center justify-between px-16 bg-[#070708]/50 backdrop-blur-xl">
-           <div className="flex flex-col items-start text-left">
-             <span className="text-2xl font-bold tracking-tight">Studio Workspace</span>
-             <span className="text-[11px] uppercase tracking-[0.2em] flex items-center flare-active-glow">
-               <div className="w-2 h-2 rounded-full bg-emerald-500 mr-2 shadow-[0_0_10px_rgba(16,185,129,1)] animate-pulse" />
-               Flare active
-             </span>
-           </div>
-           <div className="flex items-center space-x-8">
-             <div className="w-16 h-16 rounded-[24px] glass flex items-center justify-center text-zinc-500 hover:text-white transition-all cursor-pointer shadow-xl" onClick={() => setActiveTab('dashboard')}><User size={32} /></div>
-             <button onClick={() => signOut(auth)} className="text-zinc-600 hover:text-rose-500 transition-colors"><LogOut size={24} /></button>
-           </div>
+        {/* Header */}
+        <header className="h-[100px] border-b border-white/5 flex items-center justify-between px-6 md:px-16 bg-[#070708]/50 backdrop-blur-xl">
+          <div className="flex flex-col items-start text-left">
+            <span className="text-xl md:text-2xl font-bold tracking-tight">Studio Workspace</span>
+            <span className="text-[11px] uppercase tracking-[0.2em] flex items-center flare-active-glow">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 mr-2 shadow-[0_0_10px_rgba(16,185,129,1)] animate-pulse" />
+              Flare active
+            </span>
+          </div>
+          <div className="flex items-center space-x-4 md:space-x-8">
+            <div 
+              className="w-12 h-12 md:w-16 md:h-16 rounded-[24px] glass flex items-center justify-center text-zinc-500 hover:text-white transition-all cursor-pointer shadow-xl" 
+              onClick={() => setActiveTab('dashboard')}
+            >
+              <User size={24} />
+            </div>
+            <button 
+              onClick={() => signOut(auth)} 
+              className="text-zinc-600 hover:text-rose-500 transition-colors"
+              aria-label="Logout"
+            >
+              <LogOut size={20} />
+            </button>
+          </div>
         </header>
 
+        {/* Tab Content */}
         <div className="flex-1 overflow-hidden relative">
-          {activeTab === 'dashboard' && <HubView setTab={setActiveTab} vaultCount={vaultItems.length} userEmail={user.email} />}
-          {activeTab === 'library' && <VaultPro items={vaultItems} onInspect={setSelectedFlare} deleteItem={tid => deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'asset_vault', tid))} />}
+          {activeTab === 'dashboard' && (
+            <HubView 
+              setTab={setActiveTab} 
+              vaultCount={vaultItems.length} 
+              userEmail={user.email} 
+            />
+          )}
+          
+          {activeTab === 'library' && (
+            <VaultPro 
+              items={vaultItems} 
+              onInspect={setSelectedFlare} 
+              deleteItem={deleteVaultItem} 
+            />
+          )}
+          
           {activeTab === 'engine' && (
             <div className="flex flex-col h-full bg-[#070708] text-left">
-              <div className="flex-1 overflow-y-auto p-12 space-y-12 scrollbar-hide pb-56">
+              {/* Chat Messages */}
+              <div className="flex-1 overflow-y-auto p-6 md:p-12 space-y-12 scrollbar-hide pb-56">
                 <div className="max-w-4xl mx-auto space-y-12">
                   {chatMessages.map((msg, i) => (
-                    <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-4 duration-700 w-full`}>
+                    <div 
+                      key={msg.id || i} 
+                      className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-4 duration-700 w-full`}
+                    >
                       {msg.role === 'user' ? (
-                        <div className="bg-emerald-500/10 border border-emerald-500/20 px-8 py-4 rounded-[28px] rounded-tr-sm max-w-xl text-lg font-medium text-emerald-400 shadow-lg">{String(msg.content)}</div>
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 px-6 md:px-8 py-4 rounded-[28px] rounded-tr-sm max-w-xl text-base md:text-lg font-medium text-emerald-400 shadow-lg">
+                          {msg.content}
+                        </div>
                       ) : (
                         <div className="space-y-6 w-full text-left">
-                          <div className="flex items-center space-x-3 text-zinc-700"><Cpu size={16} /><span className="text-[9px] font-bold uppercase tracking-[0.2em]">Neural Signal</span></div>
+                          <div className="flex items-center space-x-3 text-zinc-700">
+                            <Cpu size={16} />
+                            <span className="text-[9px] font-bold uppercase tracking-[0.2em]">Neural Signal</span>
+                          </div>
+                          
                           {msg.type === 'image' ? (
-                            <div className="space-y-10 group text-left">
-                              <div className="relative rounded-[48px] overflow-hidden border border-white/5 shadow-2xl bg-zinc-950 aspect-square w-full max-w-2xl">
-                                <img src={String(msg.content)} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="Output" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-                                  <button onClick={() => window.open(msg.content, '_blank')} className="p-5 bg-white text-black rounded-3xl hover:bg-emerald-400 transition-all transform hover:scale-110 shadow-2xl"><Maximize2 size={24} /></button>
+                            <div className="space-y-6 md:space-y-10 group text-left">
+                              <div className="relative rounded-[32px] md:rounded-[48px] overflow-hidden border border-white/5 shadow-2xl bg-zinc-950 aspect-square w-full max-w-2xl">
+                                <img 
+                                  src={msg.content} 
+                                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
+                                  alt={msg.prompt || "Generated image"}
+                                  loading="lazy"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center space-x-4">
+                                  <button 
+                                    onClick={() => window.open(msg.content, '_blank')} 
+                                    className="p-4 md:p-5 bg-white text-black rounded-3xl hover:bg-emerald-400 transition-all transform hover:scale-110 shadow-2xl"
+                                    aria-label="Open image in new tab"
+                                  >
+                                    <Maximize2 size={24} />
+                                  </button>
                                 </div>
                               </div>
-                              <button onClick={() => saveToVault({ title: msg.prompt?.substring(0, 20) || 'Neural Flare', url: msg.content, prompt: msg.prompt, style: msg.style })} className="opacity-0 group-hover:opacity-100 transition-all flex items-center space-x-4 px-8 py-3.5 bg-emerald-600 text-white font-bold rounded-[22px] hover:bg-emerald-500 shadow-xl text-sm">Save to Neural Vault</button>
+                              <button 
+                                onClick={() => saveToVault({ 
+                                  title: msg.prompt?.substring(0, 30) || 'Neural Flare', 
+                                  url: msg.content, 
+                                  prompt: msg.prompt, 
+                                  style: msg.style 
+                                })} 
+                                className="opacity-0 group-hover:opacity-100 transition-all flex items-center space-x-4 px-6 md:px-8 py-3.5 bg-emerald-600 text-white font-bold rounded-[22px] hover:bg-emerald-500 shadow-xl text-sm"
+                              >
+                                <Database size={16} />
+                                <span>Save to Neural Vault</span>
+                              </button>
                             </div>
                           ) : (
-                            <div className="text-2xl font-bold tracking-tight text-white leading-snug max-w-2xl">{String(msg.content)}</div>
+                            <div className="text-xl md:text-2xl font-bold tracking-tight text-white leading-snug max-w-2xl">
+                              {msg.content}
+                            </div>
                           )}
                         </div>
                       )}
                     </div>
                   ))}
-                  {isGenerating && <div className="flex items-center space-x-5 text-emerald-400"><PixelflareLogo igniting size={32} /><span className="text-lg font-bold uppercase tracking-tight">Synthesizing Vision...</span></div>}
+                  
+                  {isGenerating && (
+                    <div className="flex items-center space-x-5 text-emerald-400">
+                      <PixelflareLogo igniting size={32} />
+                      <span className="text-base md:text-lg font-bold uppercase tracking-tight">
+                        Synthesizing Vision...
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="absolute bottom-0 inset-x-0 p-8 chat-gradient pointer-events-none">
+
+              {/* Input Area */}
+              <div className="absolute bottom-0 inset-x-0 p-4 md:p-8 chat-gradient pointer-events-none">
                 <div className="max-w-4xl mx-auto pointer-events-auto">
-                  <div className="glass rounded-[36px] p-3.5 shadow-2xl flex flex-col space-y-3.5 border border-white/10">
+                  <div className="glass rounded-[32px] md:rounded-[36px] p-3 md:p-3.5 shadow-2xl flex flex-col space-y-3 md:space-y-3.5 border border-white/10">
+                    {/* Style Presets */}
                     <div className="flex items-center space-x-2 overflow-x-auto scrollbar-hide pb-1">
                       {STYLE_PRESETS.map((s) => (
                         <button
                           key={s.id}
                           onClick={() => setStyle(s.id)}
-                          className={`
-                            px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-all border
-                            ${style === s.id 
+                          className={`px-3 md:px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest whitespace-nowrap transition-all border ${
+                            style === s.id 
                               ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/20' 
-                              : 'bg-white/5 text-zinc-500 border-transparent hover:bg-white/10 hover:text-zinc-300'}
-                          `}
+                              : 'bg-white/5 text-zinc-500 border-transparent hover:bg-white/10 hover:text-zinc-300'
+                          }`}
                         >
                           {s.label}
                         </button>
                       ))}
                     </div>
-                    <div className="flex items-center space-x-3 bg-black/20 rounded-[26px] p-2 pr-2.5 border border-white/5 focus-within:border-emerald-500/30 transition-colors">
-                      <div className="pl-4 text-zinc-500">
+                    
+                    {/* Input Field */}
+                    <div className="flex items-center space-x-3 bg-black/20 rounded-[24px] md:rounded-[26px] p-2 pr-2.5 border border-white/5 focus-within:border-emerald-500/30 transition-colors">
+                      <div className="pl-3 md:pl-4 text-zinc-500">
                         <Wand2 size={20} />
                       </div>
                       <input
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                         placeholder="Describe your vision..."
-                        className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-white placeholder-zinc-600 h-12"
+                        className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-white placeholder-zinc-600 h-10 md:h-12"
                         disabled={isGenerating}
+                        aria-label="Prompt input"
                       />
                       <button
                         onClick={handleSend}
                         disabled={!input.trim() || isGenerating}
-                        className={`
-                          p-3 rounded-[20px] transition-all duration-300 flex items-center justify-center
-                          ${!input.trim() || isGenerating 
+                        className={`p-3 rounded-[18px] md:rounded-[20px] transition-all duration-300 flex items-center justify-center ${
+                          !input.trim() || isGenerating 
                             ? 'bg-white/5 text-zinc-600 cursor-not-allowed' 
-                            : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95'}
-                        `}
+                            : 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95'
+                        }`}
+                        aria-label="Send prompt"
                       >
-                        {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+                        {isGenerating ? (
+                          <Loader2 size={20} className="animate-spin" />
+                        ) : (
+                          <Send size={20} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -513,6 +968,8 @@ export default function App() {
           )}
         </div>
       </main>
+
+      {/* Artifact Modal */}
       <ArtifactView flare={selectedFlare} onClose={() => setSelectedFlare(null)} />
     </div>
   );
