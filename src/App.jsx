@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Loader2, Download, Heart, Sparkles, Moon, Sun, Grid3x3, History, Copy, Check, AlertCircle, Search } from 'lucide-react';
+import { Send, Loader2, Download, Heart, Sparkles, Moon, Sun, Grid, History, Copy, Check, AlertCircle, Search } from 'lucide-react';
 
 const STYLE_PRESETS = [
   { id: 'cinematic', label: 'Cinematic', suffix: 'cinematic film still, 8k, professional lighting, photorealistic', icon: '🎬', color: '#ef4444' },
@@ -464,7 +464,7 @@ export default function App() {
             AI Engine
           </button>
           <button style={s.navBtn(activeTab === 'library')} onClick={() => setActiveTab('library')}>
-            <Grid3x3 size={18} />
+            <Grid size={18} />
             Vault ({vault.length})
           </button>
           <button style={s.navBtn(activeTab === 'history')} onClick={() => setActiveTab('history')}>
