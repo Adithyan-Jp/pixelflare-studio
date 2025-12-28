@@ -322,6 +322,7 @@ const styles = {
     letterSpacing: '0.1em',
   }),
 };
+
 import React, { useState, useEffect } from 'react';
 import { Wand2, Send, Loader2, Maximize2, Trash, Search, Download, Share2, Heart, Sparkles, Moon, Sun, Grid3x3, History, Copy, Check } from 'lucide-react';
 
