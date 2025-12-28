@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wand2, Send, Loader2, Maximize2, Trash, Library, Grid, Folder, Search } from 'lucide-react';
+import { Wand2, Send, Loader2, Maximize2, Trash, Search } from 'lucide-react';
 
 const STYLE_PRESETS = [
   { id: 'cinematic', label: 'Cinematic', suffix: 'cinematic film still, 8k, professional lighting, photorealistic' },
@@ -10,23 +10,220 @@ const STYLE_PRESETS = [
   { id: '3d-render', label: '3D Render', suffix: 'unreal engine 5 render, 3d isometric, blender style' },
 ];
 
-const GlobalStyles = () => (
-  <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-    body { font-family: 'Space Grotesk', sans-serif; background: #070708; color: white; margin: 0; overflow: hidden; }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
-  `}</style>
-);
+const styles = {
+  app: {
+    display: 'flex',
+    height: '100vh',
+    background: '#070708',
+    color: 'white',
+    fontFamily: "'Space Grotesk', sans-serif",
+  },
+  sidebar: {
+    width: '280px',
+    borderRight: '1px solid rgba(255,255,255,0.1)',
+    padding: '24px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px',
+  },
+  title: {
+    fontSize: '32px',
+    fontWeight: 'bold',
+    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+  },
+  navBtn: (active) => ({
+    width: '100%',
+    padding: '12px 16px',
+    borderRadius: '12px',
+    border: 'none',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    background: active ? '#10b981' : 'rgba(255,255,255,0.05)',
+    color: active ? 'white' : 'rgba(255,255,255,0.6)',
+    transition: 'all 0.3s',
+  }),
+  main: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  header: {
+    height: '80px',
+    borderBottom: '1px solid rgba(255,255,255,0.1)',
+    padding: '0 32px',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: '24px',
+    fontWeight: 'bold',
+  },
+  content: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '32px',
+    paddingBottom: '280px',
+  },
+  messageContainer: (isUser) => ({
+    display: 'flex',
+    justifyContent: isUser ? 'flex-end' : 'flex-start',
+    marginBottom: '32px',
+  }),
+  message: (isUser) => ({
+    padding: '16px 24px',
+    borderRadius: '20px',
+    maxWidth: '600px',
+    background: isUser ? '#10b981' : 'rgba(255,255,255,0.1)',
+    color: 'white',
+  }),
+  imageContainer: {
+    position: 'relative',
+    width: '400px',
+    height: '400px',
+    borderRadius: '24px',
+    overflow: 'hidden',
+    border: '1px solid rgba(255,255,255,0.1)',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0,
+    transition: 'opacity 0.3s',
+  },
+  saveBtn: {
+    marginTop: '16px',
+    padding: '12px 24px',
+    background: '#10b981',
+    border: 'none',
+    borderRadius: '12px',
+    color: 'white',
+    fontWeight: '600',
+    cursor: 'pointer',
+    opacity: 0,
+    transition: 'opacity 0.3s',
+  },
+  inputArea: {
+    position: 'fixed',
+    bottom: 0,
+    left: '280px',
+    right: 0,
+    padding: '24px',
+    background: 'linear-gradient(to top, #070708 0%, transparent 100%)',
+  },
+  inputBox: {
+    maxWidth: '1000px',
+    margin: '0 auto',
+    background: 'rgba(255,255,255,0.05)',
+    backdropFilter: 'blur(20px)',
+    borderRadius: '24px',
+    padding: '16px',
+    border: '1px solid rgba(255,255,255,0.1)',
+  },
+  styleButtons: {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '16px',
+    overflowX: 'auto',
+    paddingBottom: '8px',
+  },
+  styleBtn: (active) => ({
+    padding: '8px 16px',
+    borderRadius: '12px',
+    border: 'none',
+    fontSize: '11px',
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
+    background: active ? '#10b981' : 'rgba(255,255,255,0.1)',
+    color: active ? 'white' : 'rgba(255,255,255,0.6)',
+  }),
+  inputWrapper: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    background: 'rgba(0,0,0,0.3)',
+    borderRadius: '16px',
+    padding: '12px',
+  },
+  input: {
+    flex: 1,
+    background: 'transparent',
+    border: 'none',
+    outline: 'none',
+    color: 'white',
+    fontSize: '14px',
+  },
+  sendBtn: (disabled) => ({
+    padding: '12px',
+    borderRadius: '12px',
+    border: 'none',
+    background: disabled ? 'rgba(255,255,255,0.1)' : '#10b981',
+    color: disabled ? 'rgba(255,255,255,0.3)' : 'white',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  }),
+  vaultGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+    gap: '24px',
+  },
+  vaultItem: {
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: '16px',
+    padding: '12px',
+    transition: 'all 0.3s',
+    cursor: 'pointer',
+  },
+  vaultImage: {
+    width: '100%',
+    aspectRatio: '1',
+    borderRadius: '12px',
+    objectFit: 'cover',
+    marginBottom: '12px',
+  },
+  searchBox: {
+    width: '100%',
+    padding: '12px 16px 12px 40px',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '16px',
+    color: 'white',
+    outline: 'none',
+    marginBottom: '24px',
+  },
+  loading: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    color: '#10b981',
+  },
+};
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('engine');
   const [vault, setVault] = useState([]);
-  const [messages, setMessages] = useState([{ role: 'ai', content: 'Ready to create! 🎨', type: 'text' }]);
+  const [messages, setMessages] = useState([{ role: 'ai', content: '✨ Ready to create amazing AI art!', type: 'text' }]);
   const [input, setInput] = useState('');
   const [style, setStyle] = useState('cinematic');
   const [generating, setGenerating] = useState(false);
   const [search, setSearch] = useState('');
+  const [hoveredImage, setHoveredImage] = useState(null);
 
   const handleSend = async () => {
     if (!input.trim() || generating) return;
@@ -66,22 +263,24 @@ export default function App() {
   );
 
   return (
-    <div className="flex h-screen bg-[#070708] text-white">
-      <GlobalStyles />
-      
+    <div style={styles.app}>
       {/* Sidebar */}
-      <aside className="w-72 border-r border-white/10 p-6 flex flex-col space-y-6">
-        <h1 className="text-3xl font-bold">Pixelflare</h1>
-        <nav className="space-y-2">
+      <aside style={styles.sidebar}>
+        <h1 style={styles.title}>Pixelflare</h1>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <button 
-            onClick={() => setActiveTab('engine')} 
-            className={`w-full p-3 rounded-xl text-left ${activeTab === 'engine' ? 'bg-emerald-500 text-white' : 'bg-white/5 hover:bg-white/10'}`}
+            style={styles.navBtn(activeTab === 'engine')}
+            onClick={() => setActiveTab('engine')}
+            onMouseOver={(e) => !activeTab && (e.target.style.background = 'rgba(255,255,255,0.1)')}
+            onMouseOut={(e) => !activeTab && (e.target.style.background = 'rgba(255,255,255,0.05)')}
           >
             🎨 AI Engine
           </button>
           <button 
-            onClick={() => setActiveTab('library')} 
-            className={`w-full p-3 rounded-xl text-left ${activeTab === 'library' ? 'bg-emerald-500 text-white' : 'bg-white/5 hover:bg-white/10'}`}
+            style={styles.navBtn(activeTab === 'library')}
+            onClick={() => setActiveTab('library')}
+            onMouseOver={(e) => activeTab !== 'library' && (e.target.style.background = 'rgba(255,255,255,0.1)')}
+            onMouseOut={(e) => activeTab !== 'library' && (e.target.style.background = 'rgba(255,255,255,0.05)')}
           >
             📚 Vault ({vault.length})
           </button>
@@ -89,43 +288,43 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col">
-        <header className="h-20 border-b border-white/10 flex items-center px-8">
-          <h2 className="text-2xl font-bold">
-            {activeTab === 'engine' ? 'AI Generation' : 'Your Vault'}
+      <main style={styles.main}>
+        <header style={styles.header}>
+          <h2 style={styles.headerTitle}>
+            {activeTab === 'engine' ? 'AI Generation Studio' : 'Your Vault'}
           </h2>
         </header>
 
         {activeTab === 'engine' ? (
-          <div className="flex-1 flex flex-col">
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-8 space-y-8 pb-60">
+          <div style={{ position: 'relative', flex: 1 }}>
+            <div style={styles.content}>
               {messages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div key={i} style={styles.messageContainer(msg.role === 'user')}>
                   {msg.type === 'text' ? (
-                    <div className={`px-6 py-3 rounded-2xl max-w-xl ${
-                      msg.role === 'user' 
-                        ? 'bg-emerald-500 text-white' 
-                        : 'bg-white/10'
-                    }`}>
+                    <div style={styles.message(msg.role === 'user')}>
                       {msg.content}
                     </div>
                   ) : (
-                    <div className="space-y-4 group">
-                      <div className="relative w-96 h-96 rounded-3xl overflow-hidden border border-white/10">
-                        <img src={msg.content} className="w-full h-full object-cover" alt="Generated" />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                          <button 
-                            onClick={() => window.open(msg.content, '_blank')}
-                            className="p-3 bg-white text-black rounded-xl hover:bg-emerald-400"
-                          >
-                            <Maximize2 size={20} />
-                          </button>
-                        </div>
+                    <div 
+                      onMouseEnter={() => setHoveredImage(i)}
+                      onMouseLeave={() => setHoveredImage(null)}
+                    >
+                      <div style={styles.imageContainer}>
+                        <img src={msg.content} style={styles.image} alt="Generated" />
+                        {hoveredImage === i && (
+                          <div style={{ ...styles.imageOverlay, opacity: 1 }}>
+                            <button 
+                              onClick={() => window.open(msg.content, '_blank')}
+                              style={{ padding: '12px', background: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer' }}
+                            >
+                              <Maximize2 size={20} color="#000" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                       <button
                         onClick={() => saveToVault(msg)}
-                        className="opacity-0 group-hover:opacity-100 px-6 py-3 bg-emerald-500 rounded-xl hover:bg-emerald-600 transition-all"
+                        style={{ ...styles.saveBtn, opacity: hoveredImage === i ? 1 : 0 }}
                       >
                         Save to Vault
                       </button>
@@ -134,52 +333,41 @@ export default function App() {
                 </div>
               ))}
               {generating && (
-                <div className="flex items-center gap-3 text-emerald-400">
+                <div style={styles.loading}>
                   <Loader2 className="animate-spin" size={24} />
-                  <span>Generating...</span>
+                  <span>Generating your masterpiece...</span>
                 </div>
               )}
             </div>
 
-            {/* Input Area */}
-            <div className="absolute bottom-0 left-72 right-0 p-6 bg-gradient-to-t from-[#070708] to-transparent">
-              <div className="max-w-4xl mx-auto bg-white/5 backdrop-blur-xl rounded-3xl p-4 border border-white/10">
-                {/* Style Buttons */}
-                <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+            <div style={styles.inputArea}>
+              <div style={styles.inputBox}>
+                <div style={styles.styleButtons}>
                   {STYLE_PRESETS.map(s => (
                     <button
                       key={s.id}
                       onClick={() => setStyle(s.id)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap ${
-                        style === s.id 
-                          ? 'bg-emerald-500 text-white' 
-                          : 'bg-white/10 hover:bg-white/20'
-                      }`}
+                      style={styles.styleBtn(style === s.id)}
                     >
                       {s.label}
                     </button>
                   ))}
                 </div>
                 
-                {/* Input */}
-                <div className="flex items-center gap-3 bg-black/30 rounded-2xl p-3">
-                  <Wand2 size={20} className="text-zinc-500" />
+                <div style={styles.inputWrapper}>
+                  <Wand2 size={20} style={{ color: 'rgba(255,255,255,0.5)' }} />
                   <input
+                    style={styles.input}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                     placeholder="Describe your vision..."
-                    className="flex-1 bg-transparent outline-none text-sm"
                     disabled={generating}
                   />
                   <button
                     onClick={handleSend}
                     disabled={!input.trim() || generating}
-                    className={`p-3 rounded-xl ${
-                      !input.trim() || generating
-                        ? 'bg-white/5 text-zinc-600 cursor-not-allowed'
-                        : 'bg-emerald-500 text-white hover:bg-emerald-600'
-                    }`}
+                    style={styles.sendBtn(!input.trim() || generating)}
                   >
                     {generating ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
                   </button>
@@ -188,50 +376,62 @@ export default function App() {
             </div>
           </div>
         ) : (
-          /* Vault View */
-          <div className="flex-1 p-8 overflow-y-auto">
-            <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search your creations..."
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 outline-none focus:ring-2 focus:ring-emerald-500/50"
-                />
-              </div>
+          <div style={styles.content}>
+            <div style={{ position: 'relative', marginBottom: '24px' }}>
+              <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)' }} size={18} />
+              <input
+                style={styles.searchBox}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search your creations..."
+              />
             </div>
             
-            <div className="grid grid-cols-4 gap-6">
-              {filteredVault.length === 0 ? (
-                <div className="col-span-4 text-center py-20 text-zinc-500">
-                  No images saved yet. Create some AI art!
-                </div>
-              ) : (
-                filteredVault.map(item => (
-                  <div key={item.id} className="group relative bg-white/5 rounded-2xl p-3 hover:bg-white/10 transition-all">
-                    <div className="aspect-square rounded-xl overflow-hidden mb-3">
-                      <img src={item.content} className="w-full h-full object-cover" alt={item.prompt} />
-                    </div>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-zinc-400 truncate">{item.prompt}</p>
-                        <p className="text-[10px] text-emerald-400 font-bold uppercase">{item.style}</p>
+            {filteredVault.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '80px 20px', color: 'rgba(255,255,255,0.5)' }}>
+                {vault.length === 0 ? 'No images saved yet. Create some AI art!' : 'No results found.'}
+              </div>
+            ) : (
+              <div style={styles.vaultGrid}>
+                {filteredVault.map(item => (
+                  <div 
+                    key={item.id} 
+                    style={styles.vaultItem}
+                    onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                    onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                  >
+                    <img src={item.content} style={styles.vaultImage} alt={item.prompt} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: '0 0 4px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.prompt}
+                        </p>
+                        <p style={{ fontSize: '10px', color: '#10b981', fontWeight: 'bold', textTransform: 'uppercase', margin: 0 }}>
+                          {item.style}
+                        </p>
                       </div>
                       <button
                         onClick={() => setVault(prev => prev.filter(v => v.id !== item.id))}
-                        className="p-2 text-zinc-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                        style={{ padding: '8px', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}
                       >
                         <Trash size={14} />
                       </button>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap');
+        body { margin: 0; padding: 0; }
+        .animate-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        * { box-sizing: border-box; }
+      `}</style>
     </div>
   );
 }
