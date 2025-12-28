@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Loader2, Download, Heart, Sparkles, Moon, Sun, Grid, History, Copy, Check, AlertCircle, Search } from 'lucide-react';
+import { Send, Loader2, Download, Heart, Sparkles, Moon, Sun, Grid, History, Copy, Check, AlertCircle, Search, Wand2, Settings, X, ChevronDown, ChevronUp } from 'lucide-react';
 
 const STYLE_PRESETS = [
   { id: 'cinematic', label: 'Cinematic', suffix: 'cinematic film still, 8k, professional lighting, photorealistic', icon: '🎬', color: '#ef4444' },
@@ -10,6 +10,65 @@ const STYLE_PRESETS = [
   { id: '3d-render', label: '3D Render', suffix: 'unreal engine 5 render, 3d isometric, blender style', icon: '🎲', color: '#10b981' },
   { id: 'watercolor', label: 'Watercolor', suffix: 'watercolor painting, soft colors, artistic', icon: '🎨', color: '#14b8a6' },
   { id: 'fantasy', label: 'Fantasy', suffix: 'fantasy art, magical, ethereal lighting', icon: '✨', color: '#a855f7' },
+];
+
+// 🎨 PROMPT TEMPLATES
+const PROMPT_TEMPLATES = [
+  {
+    category: 'Portrait',
+    templates: [
+      { name: 'Professional Headshot', prompt: 'professional corporate headshot, business attire, clean background, natural lighting, 8k, sharp focus' },
+      { name: 'Fantasy Character', prompt: 'epic fantasy character portrait, intricate armor, mystical background, dramatic lighting, highly detailed' },
+      { name: 'Artistic Portrait', prompt: 'artistic portrait painting, expressive brushstrokes, vibrant colors, emotional depth, museum quality' },
+    ]
+  },
+  {
+    category: 'Landscape',
+    templates: [
+      { name: 'Mountain Vista', prompt: 'majestic mountain landscape, golden hour lighting, misty valleys, epic scale, nature photography, 8k' },
+      { name: 'Futuristic City', prompt: 'futuristic cityscape at night, neon lights, flying vehicles, cyberpunk aesthetic, ultra detailed' },
+      { name: 'Fantasy World', prompt: 'magical fantasy landscape, floating islands, waterfalls, ethereal lighting, dreamlike atmosphere' },
+    ]
+  },
+  {
+    category: 'Abstract',
+    templates: [
+      { name: 'Geometric Art', prompt: 'abstract geometric art, vibrant colors, mathematical patterns, modern design, minimalist' },
+      { name: 'Fluid Motion', prompt: 'abstract fluid art, swirling colors, dynamic movement, organic forms, high contrast' },
+      { name: 'Digital Glitch', prompt: 'glitch art aesthetic, distorted reality, digital artifacts, vibrant colors, experimental' },
+    ]
+  },
+  {
+    category: 'Character',
+    templates: [
+      { name: 'Superhero', prompt: 'powerful superhero character, dynamic pose, dramatic cape, heroic lighting, comic book style' },
+      { name: 'Anime Character', prompt: 'anime character design, detailed outfit, expressive eyes, dynamic hair, vibrant colors' },
+      { name: 'Sci-Fi Warrior', prompt: 'futuristic warrior, advanced armor, energy weapons, battle stance, cinematic lighting' },
+    ]
+  },
+  {
+    category: 'Nature',
+    templates: [
+      { name: 'Wildlife Close-up', prompt: 'wildlife photography, animal close-up, natural habitat, golden hour, shallow depth of field, 8k' },
+      { name: 'Tropical Paradise', prompt: 'tropical beach paradise, crystal clear water, palm trees, sunset sky, vacation vibes' },
+      { name: 'Forest Scene', prompt: 'enchanted forest, sun rays through trees, moss covered ground, magical atmosphere, detailed foliage' },
+    ]
+  },
+];
+
+// 🎯 ASPECT RATIOS
+const ASPECT_RATIOS = [
+  { id: 'square', label: '1:1', value: '1:1', width: 1024, height: 1024, icon: '⬜' },
+  { id: 'landscape', label: '16:9', value: '16:9', width: 1024, height: 576, icon: '🖼️' },
+  { id: 'portrait', label: '9:16', value: '9:16', width: 576, height: 1024, icon: '📱' },
+  { id: 'wide', label: '21:9', value: '21:9', width: 1024, height: 438, icon: '📺' },
+];
+
+// 📏 IMAGE SIZES
+const IMAGE_SIZES = [
+  { id: 'small', label: 'Draft', value: 512, description: 'Fast generation' },
+  { id: 'medium', label: 'Standard', value: 1024, description: 'Balanced quality' },
+  { id: 'large', label: 'Premium', value: 2048, description: 'Highest quality' },
 ];
 
 export default function App() {
@@ -27,6 +86,16 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [notification, setNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // 🆕 NEW STATES
+  const [showSettings, setShowSettings] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
+  const [originalPrompt, setOriginalPrompt] = useState('');
+  const [aspectRatio, setAspectRatio] = useState('square');
+  const [imageSize, setImageSize] = useState('medium');
+  const [negativePrompt, setNegativePrompt] = useState('');
+  const [expandedCategory, setExpandedCategory] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -35,11 +104,18 @@ export default function App() {
         const favData = await window.storage.get('pixelflare-favorites');
         const historyData = await window.storage.get('pixelflare-history');
         const darkModeData = await window.storage.get('pixelflare-darkmode');
+        const settingsData = await window.storage.get('pixelflare-settings');
 
         if (vaultData?.value) setVault(JSON.parse(vaultData.value));
         if (favData?.value) setFavorites(JSON.parse(favData.value));
         if (historyData?.value) setHistory(JSON.parse(historyData.value));
         if (darkModeData?.value) setDarkMode(JSON.parse(darkModeData.value));
+        if (settingsData?.value) {
+          const settings = JSON.parse(settingsData.value);
+          setAspectRatio(settings.aspectRatio || 'square');
+          setImageSize(settings.imageSize || 'medium');
+          setNegativePrompt(settings.negativePrompt || '');
+        }
       } catch (error) {
         console.log('No saved data found');
       } finally {
@@ -57,13 +133,18 @@ export default function App() {
           await window.storage.set('pixelflare-favorites', JSON.stringify(favorites));
           await window.storage.set('pixelflare-history', JSON.stringify(history));
           await window.storage.set('pixelflare-darkmode', JSON.stringify(darkMode));
+          await window.storage.set('pixelflare-settings', JSON.stringify({
+            aspectRatio,
+            imageSize,
+            negativePrompt
+          }));
         } catch (error) {
           console.error('Failed to save:', error);
         }
       };
       saveData();
     }
-  }, [vault, favorites, history, darkMode, isLoading]);
+  }, [vault, favorites, history, darkMode, aspectRatio, imageSize, negativePrompt, isLoading]);
 
   const totalGenerations = messages.filter(m => m.type === 'image').length;
 
@@ -72,20 +153,76 @@ export default function App() {
     setTimeout(() => setNotification(null), 3000);
   };
 
+  // 🆕 AI PROMPT ENHANCER
+  const enhancePrompt = async () => {
+    if (!input.trim() || enhancing) return;
+    
+    setEnhancing(true);
+    setOriginalPrompt(input);
+    showNotification('✨ Enhancing your prompt...', 'info');
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{
+            role: 'user',
+            content: `You are an expert AI art prompt engineer. Transform this simple prompt into a detailed, professional prompt for image generation. Make it vivid, specific, and optimized for high-quality results. Keep it under 150 words.
+
+Original prompt: "${input}"
+
+Enhanced prompt (respond with ONLY the enhanced prompt, no explanations):`
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const enhanced = data.content[0].text.trim();
+      setInput(enhanced);
+      showNotification('✨ Prompt enhanced successfully!');
+    } catch (error) {
+      console.error('Enhancement failed:', error);
+      showNotification('Enhancement failed. Using original prompt.', 'error');
+    } finally {
+      setEnhancing(false);
+    }
+  };
+
+  // 🆕 APPLY TEMPLATE
+  const applyTemplate = (template) => {
+    setInput(template);
+    setShowTemplates(false);
+    showNotification('📝 Template applied!');
+  };
+
   const handleSend = async () => {
     if (!input.trim() || generating) return;
     
     const prompt = input;
     const timestamp = new Date().toLocaleString();
+    const ratio = ASPECT_RATIOS.find(r => r.id === aspectRatio);
+    const size = IMAGE_SIZES.find(s => s.id === imageSize);
+    
     setInput('');
     setGenerating(true);
     setMessages(prev => [...prev, { role: 'user', content: prompt, type: 'text' }]);
-    setHistory(prev => [...prev, { prompt, style, timestamp }]);
+    setHistory(prev => [...prev, { prompt, style, timestamp, aspectRatio, imageSize }]);
 
     try {
       const styleData = STYLE_PRESETS.find(s => s.id === style);
-      const full = `${prompt}, ${styleData?.suffix}`;
-      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(full)}?nologo=true&width=1024&height=1024&seed=${Date.now()}`;
+      let fullPrompt = `${prompt}, ${styleData?.suffix}`;
+      
+      // Add negative prompt if exists
+      if (negativePrompt.trim()) {
+        fullPrompt += `, avoid: ${negativePrompt}`;
+      }
+      
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?nologo=true&width=${ratio.width}&height=${ratio.height}&seed=${Date.now()}`;
       
       setTimeout(() => {
         setMessages(prev => [...prev, { 
@@ -95,7 +232,9 @@ export default function App() {
           prompt, 
           style: styleData?.label,
           id: Date.now(),
-          timestamp
+          timestamp,
+          aspectRatio: ratio.label,
+          imageSize: size.label
         }]);
         setGenerating(false);
         showNotification('✨ Image generated successfully!');
@@ -151,7 +290,6 @@ export default function App() {
   const filteredVault = vault.filter(item => 
     (item.prompt || '').toLowerCase().includes(search.toLowerCase())
   );
-
   const s = {
     app: {
       display: 'flex',
@@ -265,7 +403,7 @@ export default function App() {
       flex: 1,
       overflowY: 'auto',
       padding: '40px',
-      paddingBottom: '320px',
+      paddingBottom: '400px',
     },
     message: (isUser) => ({
       padding: '18px 24px',
@@ -319,6 +457,7 @@ export default function App() {
       background: darkMode 
         ? 'linear-gradient(to top, #0a0a0b 0%, transparent 100%)'
         : 'linear-gradient(to top, #f8fafc 0%, transparent 100%)',
+      zIndex: 100,
     },
     inputBox: {
       maxWidth: '1100px',
@@ -357,7 +496,7 @@ export default function App() {
     }),
     input: {
       width: '100%',
-      padding: '16px 50px 16px 20px',
+      padding: '16px 120px 16px 20px',
       background: darkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
       border: 'none',
       borderRadius: '16px',
@@ -365,11 +504,28 @@ export default function App() {
       fontSize: '15px',
       outline: 'none',
     },
-    sendBtn: (disabled) => ({
+    inputActions: {
       position: 'absolute',
       right: '24px',
       top: '50%',
       transform: 'translateY(-50%)',
+      display: 'flex',
+      gap: '8px',
+      alignItems: 'center',
+    },
+    magicBtn: (disabled) => ({
+      padding: '10px',
+      borderRadius: '10px',
+      border: 'none',
+      background: disabled ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #a855f7 0%, #8b5cf6 100%)',
+      color: 'white',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      transition: 'all 0.3s',
+      boxShadow: disabled ? 'none' : '0 4px 16px rgba(168, 85, 247, 0.4)',
+    }),
+    sendBtn: (disabled) => ({
       padding: '12px',
       borderRadius: '12px',
       border: 'none',
@@ -379,6 +535,17 @@ export default function App() {
       display: 'flex',
       alignItems: 'center',
       boxShadow: disabled ? 'none' : '0 4px 16px rgba(16, 185, 129, 0.4)',
+    }),
+    settingsBtn: (active) => ({
+      padding: '10px',
+      borderRadius: '10px',
+      border: 'none',
+      background: active ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' : darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+      color: active ? 'white' : darkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      transition: 'all 0.3s',
     }),
     vaultGrid: {
       display: 'grid',
@@ -399,6 +566,8 @@ export default function App() {
       right: '24px',
       background: type === 'error' 
         ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+        : type === 'info'
+        ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
         : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
       color: 'white',
       padding: '16px 24px',
@@ -412,6 +581,102 @@ export default function App() {
       zIndex: 1000,
       animation: 'slideInRight 0.3s ease-out',
     }),
+    modal: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.7)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 200,
+      padding: '20px',
+    },
+    modalContent: {
+      background: darkMode ? 'rgba(20, 20, 25, 0.98)' : 'rgba(255, 255, 255, 0.98)',
+      borderRadius: '24px',
+      padding: '32px',
+      maxWidth: '900px',
+      width: '100%',
+      maxHeight: '90vh',
+      overflowY: 'auto',
+      border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+    },
+    modalHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '24px',
+    },
+    closeBtn: {
+      width: '36px',
+      height: '36px',
+      borderRadius: '10px',
+      border: 'none',
+      background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+      color: darkMode ? 'white' : '#000',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    settingsGrid: {
+      display: 'grid',
+      gap: '24px',
+    },
+    settingSection: {
+      background: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+      padding: '20px',
+      borderRadius: '16px',
+      border: darkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
+    },
+    sectionTitle: {
+      fontSize: '16px',
+      fontWeight: 'bold',
+      marginBottom: '16px',
+      color: '#10b981',
+    },
+    optionGrid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+      gap: '12px',
+    },
+    optionBtn: (active) => ({
+      padding: '16px',
+      borderRadius: '12px',
+      border: active ? '2px solid #10b981' : darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+      background: active ? 'rgba(16, 185, 129, 0.1)' : darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+      cursor: 'pointer',
+      textAlign: 'center',
+      transition: 'all 0.3s',
+      color: active ? '#10b981' : darkMode ? 'white' : '#000',
+    }),
+    templateCategory: {
+      marginBottom: '20px',
+    },
+    categoryHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '16px',
+      background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+      borderRadius: '12px',
+      cursor: 'pointer',
+      marginBottom: '12px',
+    },
+    templateGrid: {
+      display: 'grid',
+      gap: '12px',
+    },
+    templateCard: {
+      padding: '16px',
+      background: darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+      borderRadius: '12px',
+      border: darkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
+      cursor: 'pointer',
+      transition: 'all 0.3s',
+    },
   };
 
   if (isLoading) {
@@ -431,6 +696,118 @@ export default function App() {
         <div style={s.notification(notification.type)}>
           {notification.type === 'error' ? <AlertCircle size={20} /> : <Check size={20} />}
           {notification.message}
+        </div>
+      )}
+
+      {/* 🆕 SETTINGS MODAL */}
+      {showSettings && (
+        <div style={s.modal} onClick={() => setShowSettings(false)}>
+          <div style={s.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={s.modalHeader}>
+              <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>⚙️ Generation Settings</h2>
+              <button style={s.closeBtn} onClick={() => setShowSettings(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={s.settingsGrid}>
+              <div style={s.settingSection}>
+                <div style={s.sectionTitle}>📐 Aspect Ratio</div>
+                <div style={s.optionGrid}>
+                  {ASPECT_RATIOS.map(ratio => (
+                    <button
+                      key={ratio.id}
+                      style={s.optionBtn(aspectRatio === ratio.id)}
+                      onClick={() => setAspectRatio(ratio.id)}
+                    >
+                      <div style={{ fontSize: '24px', marginBottom: '8px' }}>{ratio.icon}</div>
+                      <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{ratio.label}</div>
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>{ratio.width}x{ratio.height}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={s.settingSection}>
+                <div style={s.sectionTitle}>📏 Image Quality</div>
+                <div style={s.optionGrid}>
+                  {IMAGE_SIZES.map(size => (
+                    <button
+                      key={size.id}
+                      style={s.optionBtn(imageSize === size.id)}
+                      onClick={() => setImageSize(size.id)}
+                    >
+                      <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{size.label}</div>
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>{size.description}</div>
+                      <div style={{ fontSize: '10px', opacity: 0.5, marginTop: '4px' }}>{size.value}px</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={s.settingSection}>
+                <div style={s.sectionTitle}>🚫 Negative Prompt</div>
+                <input
+                  type="text"
+                  value={negativePrompt}
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                  placeholder="Things to avoid (e.g., blurry, low quality, watermark)"
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    background: darkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+                    border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+                    borderRadius: '12px',
+                    color: darkMode ? 'white' : '#000',
+                    fontSize: '14px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 TEMPLATES MODAL */}
+      {showTemplates && (
+        <div style={s.modal} onClick={() => setShowTemplates(false)}>
+          <div style={s.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div style={s.modalHeader}>
+              <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>📝 Prompt Templates</h2>
+              <button style={s.closeBtn} onClick={() => setShowTemplates(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {PROMPT_TEMPLATES.map((category, idx) => (
+              <div key={idx} style={s.templateCategory}>
+                <div 
+                  style={s.categoryHeader}
+                  onClick={() => setExpandedCategory(expandedCategory === idx ? null : idx)}
+                >
+                  <span style={{ fontWeight: 'bold', fontSize: '16px' }}>{category.category}</span>
+                  {expandedCategory === idx ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </div>
+                {expandedCategory === idx && (
+                  <div style={s.templateGrid}>
+                    {category.templates.map((template, tidx) => (
+                      <div
+                        key={tidx}
+                        style={s.templateCard}
+                        onClick={() => applyTemplate(template.prompt)}
+                        onMouseEnter={(e) => e.currentTarget.style.background = darkMode ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}
+                      >
+                        <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#10b981' }}>{template.name}</div>
+                        <div style={{ fontSize: '13px', opacity: 0.8, lineHeight: '1.5' }}>{template.prompt}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -505,7 +882,9 @@ export default function App() {
                     <div style={s.imageOverlay(hoveredImage === i)}>
                       <div style={{ marginBottom: '16px' }}>
                         <div style={{ fontSize: '13px', color: 'white', marginBottom: '8px' }}>{msg.prompt}</div>
-                        <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 'bold' }}>{msg.style}</div>
+                        <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 'bold' }}>
+                          {msg.style} • {msg.aspectRatio} • {msg.imageSize}
+                        </div>
                       </div>
                       <div style={{ display: 'flex', gap: '12px' }}>
                         <button style={s.actionBtn} onClick={() => downloadImage(msg.content, msg.prompt)}>
@@ -514,126 +893,3 @@ export default function App() {
                         <button style={s.actionBtn} onClick={() => copyToClipboard(msg.content)}>
                           {copiedUrl === msg.content ? <Check size={18} /> : <Copy size={18} />}
                         </button>
-                        <button 
-                          style={{ ...s.actionBtn, background: favorites.includes(msg.id) ? '#ef4444' : 'rgba(255,255,255,0.95)' }} 
-                          onClick={() => toggleFavorite(msg.id)}
-                        >
-                          <Heart size={18} fill={favorites.includes(msg.id) ? 'white' : 'none'} color={favorites.includes(msg.id) ? 'white' : '#000'} />
-                        </button>
-                        <button style={s.actionBtn} onClick={() => saveToVault(msg)}>
-                          Save
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              ))}
-              {generating && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#10b981', fontSize: '16px', fontWeight: '600' }}>
-                  <Loader2 className="animate-spin" size={24} />
-                  Crafting your masterpiece...
-                </div>
-              )}
-            </div>
-
-            <div style={s.inputArea}>
-              <div style={s.inputBox}>
-                <div style={s.styleGrid}>
-                  {STYLE_PRESETS.map(preset => (
-                    <button
-                      key={preset.id}
-                      onClick={() => setStyle(preset.id)}
-                      style={s.styleBtn(style === preset.id, preset.color)}
-                    >
-                      <span>{preset.icon}</span>
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    style={s.input}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder="Describe your vision in detail..."
-                    disabled={generating}
-                  />
-                  <button style={s.sendBtn(!input.trim() || generating)} onClick={handleSend} disabled={!input.trim() || generating}>
-                    {generating ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'library' && (
-          <div style={s.content}>
-            <div style={{ position: 'relative', marginBottom: '32px' }}>
-              <Search style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)' }} size={18} />
-              <input
-                style={{ ...s.input, paddingLeft: '50px' }}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search your vault..."
-              />
-            </div>
-            {filteredVault.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '100px 20px', color: darkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                {vault.length === 0 ? '🎨 No images saved yet. Start creating!' : '🔍 No results found.'}
-              </div>
-            ) : (
-              <div style={s.vaultGrid}>
-                {filteredVault.map(item => (
-                  <div key={`vault-${item.id}`} style={s.vaultItem}>
-                    <div style={{ aspectRatio: '1', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px' }}>
-                      <img src={item.content} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={item.prompt} />
-                    </div>
-                    <div style={{ fontSize: '12px', color: darkMode ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)', marginBottom: '4px' }}>
-                      {item.prompt?.substring(0, 50)}...
-                    </div>
-                    <div style={{ fontSize: '10px', color: '#10b981', fontWeight: 'bold' }}>{item.style}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'history' && (
-          <div style={s.content}>
-            {history.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '100px 20px', color: darkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                📜 No generation history yet
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {[...history].reverse().map((h, i) => (
-                  <div key={`hist-${i}`} style={{ padding: '20px', background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', borderRadius: '16px', border: darkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)' }}>
-                    <div style={{ fontSize: '14px', marginBottom: '8px', color: darkMode ? 'white' : '#000' }}>{h.prompt}</div>
-                    <div style={{ fontSize: '11px', color: darkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }}>
-                      {h.style} • {h.timestamp}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { margin: 0; padding: 0; }
-        .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
-        @keyframes slideInRight { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
-      `}</style>
-    </div>
-  );
-}
