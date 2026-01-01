@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Loader2, Download, Heart, Sparkles, Moon, Sun, Grid, History, Copy, Check, AlertCircle, Search, Wand2, Settings, X, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Send, Loader2, Download, Heart, Sparkles, Moon, Sun, Grid, History, Copy, Check, AlertCircle, Search, Wand2, Settings, X, ChevronDown, ChevronUp } from 'lucide-react';
 
 const STYLE_PRESETS = [
   { id: 'cinematic', label: 'Cinematic', suffix: 'cinematic film still, 8k, professional lighting, photorealistic', icon: '🎬', color: '#ef4444' },
@@ -68,11 +68,6 @@ const IMAGE_SIZES = [
   { id: 'large', label: 'Premium', value: 2048, description: 'Highest quality' },
 ];
 
-const API_PROVIDERS = [
-  { id: 'pollinations', label: 'Pollinations.ai', description: 'Fast, unlimited, in-app' },
-  { id: 'perchance', label: 'Perchance AI', description: 'High quality, new tab' },
-];
-
 export default function App() {
   const [activeTab, setActiveTab] = useState('engine');
   const [vault, setVault] = useState([]);
@@ -91,12 +86,10 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
-  const [originalPrompt, setOriginalPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('square');
   const [imageSize, setImageSize] = useState('medium');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [expandedCategory, setExpandedCategory] = useState(null);
-  const [apiProvider, setApiProvider] = useState('pollinations');
 
   useEffect(() => {
     const loadData = async () => {
@@ -116,7 +109,6 @@ export default function App() {
           setAspectRatio(settings.aspectRatio || 'square');
           setImageSize(settings.imageSize || 'medium');
           setNegativePrompt(settings.negativePrompt || '');
-          setApiProvider(settings.apiProvider || 'pollinations');
         }
       } catch (error) {
         console.log('No saved data found');
@@ -138,8 +130,7 @@ export default function App() {
           await window.storage.set('pixelflare-settings', JSON.stringify({
             aspectRatio,
             imageSize,
-            negativePrompt,
-            apiProvider
+            negativePrompt
           }));
         } catch (error) {
           console.error('Failed to save:', error);
@@ -147,7 +138,7 @@ export default function App() {
       };
       saveData();
     }
-  }, [vault, favorites, history, darkMode, aspectRatio, imageSize, negativePrompt, apiProvider, isLoading]);
+  }, [vault, favorites, history, darkMode, aspectRatio, imageSize, negativePrompt, isLoading]);
 
   const totalGenerations = messages.filter(m => m.type === 'image').length;
 
@@ -156,13 +147,12 @@ export default function App() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // 🆕 USES CLAUDE API (Built-in, no API key needed!)
   const enhancePrompt = async () => {
     if (!input.trim() || enhancing) return;
 
+    const originalInput = input;
     setEnhancing(true);
-    setOriginalPrompt(input);
-    showNotification('✨ Enhancing your prompt with AI...', 'info');
+    showNotification('✨ Enhancing your prompt with Claude AI...', 'info');
 
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -172,26 +162,31 @@ export default function App() {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 200,
+          max_tokens: 300,
           messages: [{
             role: 'user',
-            content: `You are an expert AI art prompt engineer. Transform this simple prompt into a detailed, professional prompt for image generation. Make it vivid, specific, and optimized for high-quality results. Keep it under 150 words. Respond with ONLY the enhanced prompt, no explanations or quotes.
+            content: `You are an expert AI art prompt engineer. Transform this simple prompt into a detailed, professional prompt for image generation. Make it vivid, specific, and optimized for high-quality AI art results. Keep it under 150 words.
 
-Original prompt: "${input}"
+Original prompt: "${originalInput}"
 
-Enhanced prompt:`
+Return ONLY the enhanced prompt with no explanations, quotes, or preamble:`
           }]
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
+
       const data = await response.json();
-      const enhanced = data.content[0].text.trim();
+      const enhanced = data.content[0].text.trim().replace(/^["']|["']$/g, '');
+      
       setInput(enhanced);
-      showNotification('✨ Prompt enhanced by Claude AI!');
+      showNotification('✨ Prompt enhanced successfully!');
     } catch (error) {
       console.error('Enhancement failed:', error);
-      showNotification('Enhancement failed. Using original prompt.', 'error');
-      setInput(originalPrompt);
+      showNotification('Failed to enhance prompt. Try again!', 'error');
+      setInput(originalInput);
     } finally {
       setEnhancing(false);
     }
@@ -201,13 +196,6 @@ Enhanced prompt:`
     setInput(template);
     setShowTemplates(false);
     showNotification('📝 Template applied!');
-  };
-
-  const generateOnPerchance = () => {
-    if (!input.trim()) return;
-    const url = `https://perchance.org/ai-text-to-image-generator`;
-    window.open(url, '_blank');
-    showNotification('🖼️ Opening Perchance AI...');
   };
 
   const handleSend = async () => {
@@ -221,45 +209,38 @@ Enhanced prompt:`
     setInput('');
     setGenerating(true);
     setMessages(prev => [...prev, { role: 'user', content: prompt, type: 'text' }]);
-    setHistory(prev => [...prev, { prompt, style, timestamp, aspectRatio, imageSize, apiProvider }]);
+    setHistory(prev => [...prev, { prompt, style, timestamp, aspectRatio, imageSize }]);
 
     try {
-      if (apiProvider === 'perchance') {
-        generateOnPerchance();
-        setMessages(prev => [...prev, {
-          role: 'ai',
-          type: 'text',
-          content: `🖼️ Opening Perchance AI in new tab with your prompt: "${prompt}"`,
-          id: Date.now(),
-          timestamp
-        }]);
-      } else {
-        const styleData = STYLE_PRESETS.find(s => s.id === style);
-        let fullPrompt = `${prompt}, ${styleData?.suffix}`;
+      const styleData = STYLE_PRESETS.find(s => s.id === style);
+      let fullPrompt = `${prompt}, ${styleData?.suffix}`;
 
-        if (negativePrompt.trim()) {
-          fullPrompt += `, avoid: ${negativePrompt}`;
-        }
-
-        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?nologo=true&width=${ratio.width}&height=${ratio.height}&seed=${Date.now()}`;
-
-        setTimeout(() => {
-          setMessages(prev => [...prev, {
-            role: 'ai',
-            type: 'image',
-            content: url,
-            prompt,
-            style: styleData?.label,
-            id: Date.now(),
-            timestamp,
-            aspectRatio: ratio.label,
-            imageSize: size.label,
-            apiProvider
-          }]);
-          showNotification('✨ Image generated!');
-        }, 2000);
+      if (negativePrompt.trim()) {
+        fullPrompt += `, avoid: ${negativePrompt}`;
       }
+
+      // Use unique seed with timestamp + random
+      const uniqueSeed = Date.now() + Math.floor(Math.random() * 1000000);
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?width=${ratio.width}&height=${ratio.height}&seed=${uniqueSeed}&nologo=true&enhance=true`;
+
+      // Show generating message
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      setMessages(prev => [...prev, {
+        role: 'ai',
+        type: 'image',
+        content: url,
+        prompt,
+        style: styleData?.label,
+        id: uniqueSeed,
+        timestamp,
+        aspectRatio: ratio.label,
+        imageSize: size.label
+      }]);
+      
+      showNotification('✨ Image generated successfully!');
     } catch (e) {
+      console.error('Generation error:', e);
       setMessages(prev => [...prev, { role: 'ai', content: '❌ Generation failed. Please try again!', type: 'text' }]);
       showNotification('Failed to generate image', 'error');
     } finally {
@@ -724,6 +705,7 @@ Enhanced prompt:`
       </div>
     );
   }
+
   return (
     <div style={s.app}>
       {notification && (
@@ -743,21 +725,6 @@ Enhanced prompt:`
               </button>
             </div>
             <div style={s.settingsGrid}>
-              <div style={s.settingSection}>
-                <div style={s.sectionTitle}>🖼️ Image API Provider</div>
-                <div style={s.optionGrid}>
-                  {API_PROVIDERS.map(provider => (
-                    <button
-                      key={provider.id}
-                      style={s.optionBtn(apiProvider === provider.id)}
-                      onClick={() => setApiProvider(provider.id)}
-                    >
-                      <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{provider.label}</div>
-                      <div style={{ fontSize: '11px', opacity: 0.7 }}>{provider.description}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
               <div style={s.settingSection}>
                 <div style={s.sectionTitle}>📐 Aspect Ratio</div>
                 <div style={s.optionGrid}>
@@ -785,7 +752,7 @@ Enhanced prompt:`
                     >
                       <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{size.label}</div>
                       <div style={{ fontSize: '11px', opacity: 0.7 }}>{size.description}</div>
-                      <div style={{ fontSize: '10px', opacity: 0.5, marginTop: '4px' }}>{size.value}px</div>
+                      <div style={{ fontSize: '10px', opacity: 0.5', marginTop: '4px' }}>{size.value}px</div>
                     </button>
                   ))}
                 </div>
@@ -834,7 +801,7 @@ Enhanced prompt:`
                         onMouseLeave={(e) => e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}
                       >
                         <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#10b981' }}>{template.name}</div>
-                        <div style={{ fontSize: '13px', opacity: 0.8, lineHeight: '1.5' }}>{template.prompt}</div>
+                        <div style={{ fontSize: '13px', opacity: 0.8', lineHeight: '1.5' }}>{template.prompt}</div>
                       </div>
                     ))}
                   </div>
@@ -934,7 +901,7 @@ Enhanced prompt:`
                         <button
                           style={{ ...s.actionBtn, background: favorites.includes(msg.id) ? '#ef4444' : 'rgba(255,255,255,0.95)' }}
                           onClick={() => toggleFavorite(msg.id)}
-                        >
+                        >                      
                           <Heart size={18} fill={favorites.includes(msg.id) ? 'white' : 'none'} color={favorites.includes(msg.id) ? 'white' : '#000'} />
                         </button>
                         <button style={s.actionBtn} onClick={() => saveToVault(msg)}>Save</button>
@@ -1001,7 +968,6 @@ Enhanced prompt:`
             </>
           )}
         </div>
-
         {activeTab === 'engine' && (
           <div style={s.inputArea}>
             <div style={s.inputBox}>
@@ -1063,4 +1029,4 @@ Enhanced prompt:`
       `}</style>
     </div>
   );
-}
+}                            
