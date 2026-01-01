@@ -21,7 +21,7 @@
 - Prompt refinement using Google Gemini
 - Image generation via Pollinations.ai
 - Private user vault for saving favorite generations
-- Anonymous login + email authentication
+
 
 ## 🚀 Quick Start (Local Development)
 
