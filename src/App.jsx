@@ -752,7 +752,7 @@ Return ONLY the enhanced prompt with no explanations, quotes, or preamble:`
                     >
                       <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{size.label}</div>
                       <div style={{ fontSize: '11px', opacity: 0.7 }}>{size.description}</div>
-                      <div style={{ fontSize: '10px', opacity: 0.5', marginTop: '4px' }}>{size.value}px</div>
+                      <div style={{ fontSize: '10px', opacity: 0.5, marginTop: '4px' }}>{size.value}px</div>
                     </button>
                   ))}
                 </div>
@@ -801,7 +801,7 @@ Return ONLY the enhanced prompt with no explanations, quotes, or preamble:`
                         onMouseLeave={(e) => e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}
                       >
                         <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#10b981' }}>{template.name}</div>
-                        <div style={{ fontSize: '13px', opacity: 0.8', lineHeight: '1.5' }}>{template.prompt}</div>
+                        <div style={{ fontSize: '13px', opacity: 0.8, lineHeight: '1.5' }}>{template.prompt}</div>
                       </div>
                     ))}
                   </div>
@@ -901,7 +901,7 @@ Return ONLY the enhanced prompt with no explanations, quotes, or preamble:`
                         <button
                           style={{ ...s.actionBtn, background: favorites.includes(msg.id) ? '#ef4444' : 'rgba(255,255,255,0.95)' }}
                           onClick={() => toggleFavorite(msg.id)}
-                        >                      
+                        >
                           <Heart size={18} fill={favorites.includes(msg.id) ? 'white' : 'none'} color={favorites.includes(msg.id) ? 'white' : '#000'} />
                         </button>
                         <button style={s.actionBtn} onClick={() => saveToVault(msg)}>Save</button>
@@ -1029,4 +1029,4 @@ Return ONLY the enhanced prompt with no explanations, quotes, or preamble:`
       `}</style>
     </div>
   );
-}                            
+}        
